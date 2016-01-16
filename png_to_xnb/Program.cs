@@ -232,6 +232,11 @@ namespace png_to_xnb {
 				var length = bitmapData.Stride * bitmapData.Height;
 				byte[] bytes = new byte[length];
 				Marshal.Copy(bitmapData.Scan0, bytes, 0, length);
+				for (int i = 0; i < bytes.Length; i += 4) {
+					byte b = bytes[i];
+					bytes[i] = bytes[i + 2];
+					bytes[i + 2] = b;
+				}
 				bw.WriteByteArray(bytes);
 			} finally {
 				png.UnlockBits(bitmapData);
