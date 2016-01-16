@@ -1,7 +1,7 @@
 PNG to XNB
 ==========
 
-Command line program to convert PNG files to XNB format.
+Command line program to convert PNG files to [XNB format](http://xbox.create.msdn.com/en-US/sample/xnb_format).
 Supports batch conversion.
 
 Motivation
