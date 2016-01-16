@@ -2,6 +2,7 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Drawing;
+using System.Drawing.Imaging;
 
 namespace png_to_xnb {
 	class XCompress {
@@ -57,8 +58,8 @@ namespace png_to_xnb {
 			codecParams.CompressionPartitionSize = 256 * 1024;
 
 			XMemCreateCompressionContext(
-				         XMEMCODEC_TYPE.XMEMCODEC_LZX,
-				         ref codecParams, 0, ref compressionContext);
+				XMEMCODEC_TYPE.XMEMCODEC_LZX,
+				ref codecParams, 0, ref compressionContext);
 
 			// Now lets compress
 			int compressedLen = decompressedData.Length * 2;
@@ -87,8 +88,8 @@ namespace png_to_xnb {
 			codecParams.CompressionPartitionSize = 256 * 1024;
 
 			XMemCreateDecompressionContext(
-				         XMEMCODEC_TYPE.XMEMCODEC_LZX,
-				         ref codecParams, 0, ref DecompressionContext);
+				XMEMCODEC_TYPE.XMEMCODEC_LZX,
+				ref codecParams, 0, ref DecompressionContext);
 
 			// Now lets decompress
 			int compressedLen = compressedData.Length;
@@ -172,6 +173,8 @@ namespace png_to_xnb {
 	}
 
 	class MainClass {
+		private static bool keepRunning = true;
+
 		private static bool isFile(string path) {
 			return File.Exists(path) && !isExistingDirectory(path);
 		}
@@ -224,14 +227,19 @@ namespace png_to_xnb {
 			bw.WriteInt(png.Height);
 			bw.WriteInt(1); // mip count
 			bw.WriteInt(imageSize(png)); // number of bytes in the image pixel data
-			for (int y = 0; y < png.Height; y++) {
-				for (int x = 0; x < png.Width; x++) {
-					bw.WriteColor(png.GetPixel(x, y));
-				}
+			BitmapData bitmapData = png.LockBits(new Rectangle(0, 0, png.Width, png.Height), System.Drawing.Imaging.ImageLockMode.ReadWrite, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+			try {
+				var length = bitmapData.Stride * bitmapData.Height;
+				byte[] bytes = new byte[length];
+				Marshal.Copy(bitmapData.Scan0, bytes, 0, length);
+				bw.WriteByteArray(bytes);
+			} finally {
+				png.UnlockBits(bitmapData);
 			}
 		}
 
 		private static void pngToXnb(string pngFile, string xnbFile, bool compressed, bool reach) {
+			Console.WriteLine(Path.GetFileName(pngFile));
 			Bitmap png = new Bitmap(pngFile);
 			using (FileStream outFs = new FileStream(xnbFile, FileMode.Create, FileAccess.Write)) {
 				using (BinaryWriterWrapper bw = new BinaryWriterWrapper(new BinaryWriter(outFs))) {
@@ -256,29 +264,62 @@ namespace png_to_xnb {
 			}
 		}
 
+		private static void pngToDirectory(string pngFile, string xnbDirectory, bool compressed, bool reach) {
+			string fileName = Path.GetFileNameWithoutExtension(pngFile);
+			string xnbFile = Path.Combine(xnbDirectory, fileName + ".xnb");
+			pngToXnb(pngFile, xnbFile, compressed, reach);
+		}
+
+		private static void pngsToDirectory(string pngDirectory, string xnbDirectory, bool compressed, bool reach) {
+			string[] files = Directory.GetFiles(pngDirectory, "*.png");
+			foreach (string pngFile in files) {
+				if (!keepRunning) {
+					break;
+				}
+				pngToDirectory(pngFile, xnbDirectory, compressed, reach);
+			} 
+		}
+
 		private static void execute(string pngFile, string xnbFile, bool compressed, bool reach) {
 			if (isFile(pngFile)) {
-				if (!isExistingDirectory(xnbFile)) {
-					pngToXnb(pngFile, xnbFile, compressed, reach);
+				if (isExistingDirectory(xnbFile)) {
+					pngToDirectory(pngFile, xnbFile, compressed, reach);
 				} else {
-					Console.WriteLine(xnbFile+" is a directory.");
+					pngToXnb(pngFile, xnbFile, compressed, reach);
 				}
 			} else {
-				Console.WriteLine(pngFile+" is not a file.");
+				if (isExistingDirectory(xnbFile)) {
+					pngsToDirectory(pngFile, xnbFile, compressed, reach);
+				} else {
+					throw new ArgumentException("xnb_file parameter must be a directory when png_file is a directory.");
+				}
 			}
 		}
 
 		public static void Main(string[] args) {
+			Console.CancelKeyPress += delegate(object sender, ConsoleCancelEventArgs e) {
+				e.Cancel = true;
+				MainClass.keepRunning = false;
+			};
 			if (args.Length < 2) {
-				Console.WriteLine("Usage: " + System.AppDomain.CurrentDomain.FriendlyName + " [-c -compressed] [-u -uncompressed] [-hidef] png_file xnb_file");
+				Console.WriteLine("Save images as XNB.");
+				Console.WriteLine("Usage: " + System.AppDomain.CurrentDomain.FriendlyName + " [-c] [-u] [-hidef] png_file xnb_file");
 				Console.WriteLine("");
-				Console.WriteLine("The program reads png_file and saves wraps it in an XNB structure and saves it");
-				Console.WriteLine("as xnb_file.");
-				Console.WriteLine("If xcompress32.dll is available than the XNB file will be compressed by default,");
-				Console.WriteLine("use the -uncompressed switch if you always want to have uncompressed XNB file.");
-				Console.WriteLine("If -compressed switch is used than you must have xcompress32.dll.");
-				Console.WriteLine("XNB's can be either 'reach' or 'hidef'. Default is 'reach', use the -hidef");
-				Console.WriteLine("option when necessary.");
+				Console.WriteLine("The program reads the image 'png_file' and saves as an XNB file as 'xnb_file'.");
+				Console.WriteLine("");
+				Console.WriteLine("Options:");
+				Console.WriteLine("  -c      Compress the XNB file. This is the default if xcompress32.dll is");
+				Console.WriteLine("          available. Note that the compression might take significant time, but");
+				Console.WriteLine("          of course the result XNB file will be much smaller.");
+				Console.WriteLine("  -u      Save uncompressed XNB file, even xcompress32.dll is available.");
+				Console.WriteLine("  -hidef  XNB's can be either 'reach' or 'hidef'. Default is 'reach', so use");
+				Console.WriteLine("          this -hidef option when necessary. I don't know what 'reach' or");
+				Console.WriteLine("          'hidef' means, but for example Terraria cannot load 'hidef' XNB files.");
+				Console.WriteLine("");
+				Console.WriteLine("png_file  This can either be a file or a directory. If this is a directory");
+				Console.WriteLine("          then it will convert all *.png files in the directory (not recursive).");
+				Console.WriteLine("xnb_file  This can also be a file or a directory. If this is a directory then");
+				Console.WriteLine("          the filename will be name.xnb if the image file was name.png");
 				Environment.Exit(1);
 			}
 			bool compressionAvailable = XCompress.isItAvailable();
@@ -288,9 +329,9 @@ namespace png_to_xnb {
 			string xnbFile = null;
 			for (int i = 0; i < args.Length; i++) {
 				string v = args[i];
-				if (v.Equals("-c") || v.Equals("-compressed")) {
+				if (v.Equals("-c")) {
 					compressed = true;
-				} else if (v.Equals("-d") || v.Equals("-decompressed")) {
+				} else if (v.Equals("-u")) {
 					compressed = false;
 				} else if (v.Equals("-hidef")) {
 					reach = false;
@@ -300,6 +341,7 @@ namespace png_to_xnb {
 					xnbFile = v;
 				} else {
 					Console.WriteLine("Invalid command line argument: " + v);
+					Environment.Exit(3);
 				}
 			}
 			if (!compressionAvailable && compressed) {
