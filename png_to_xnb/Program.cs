@@ -530,13 +530,15 @@ namespace png_to_xnb {
 				openGUI ();
 				Environment.Exit (0);
 			}
-			if (args.Length < 2) {
+			if (args.Length == 1 && (args[0] == "-h" || args[0] == "--help" || args[0] == "/?" || args[0] == "/h")) {
 				Console.WriteLine("Save images as XNB.");
-				Console.WriteLine("Usage: " + System.AppDomain.CurrentDomain.FriendlyName + " [-c] [-u] [-hidef] png_file xnb_file");
+				Console.WriteLine("Usage: " + System.AppDomain.CurrentDomain.FriendlyName + " [-h|--help] [-c] [-u] [-hidef] png_file [xnb_file]");
 				Console.WriteLine("");
 				Console.WriteLine("The program reads the image 'png_file' and saves as an XNB file as 'xnb_file'.");
+				Console.WriteLine("Start without any input parameters to launch a GUI.");
 				Console.WriteLine("");
 				Console.WriteLine("Options:");
+				Console.WriteLine("  -h      Prints this help.");
 				Console.WriteLine("  -c      Compress the XNB file. This is the default if xcompress32.dll is");
 				Console.WriteLine("          available. Note that the compression might take significant time, but");
 				Console.WriteLine("          of course the result XNB file will be much smaller.");
@@ -549,6 +551,7 @@ namespace png_to_xnb {
 				Console.WriteLine("          then it will convert all *.png files in the directory (not recursive).");
 				Console.WriteLine("xnb_file  This can also be a file or a directory. If this is a directory then");
 				Console.WriteLine("          the filename will be name.xnb if the image file was name.png");
+				Console.WriteLine("          If this is omitted then it converts the png_file into the same folder.");
 				Environment.Exit(1);
 			}
 			bool compressionAvailable = XCompress.isItAvailable();
@@ -572,6 +575,9 @@ namespace png_to_xnb {
 					Console.WriteLine("Invalid command line argument: " + v);
 					Environment.Exit(3);
 				}
+			}
+			if (pngFile != null && xnbFile == null && isFile(pngFile)) {
+				xnbFile = Path.Combine (Path.GetDirectoryName (pngFile), Path.GetFileNameWithoutExtension (pngFile) + ".xnb");
 			}
 			if (!compressionAvailable && compressed) {
 				Console.WriteLine("To write compressed XNB files, you must have 'xcompress32.dll' available.");
