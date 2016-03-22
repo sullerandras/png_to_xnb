@@ -53,11 +53,13 @@ Once you downloaded the dll, move it next to the png_to_xnb.exe file, then my li
 Command line options
 --------------------
 
-    Usage: png_to_xnb.exe [-c] [-u] [-hidef] png_file xnb_file
+    Usage: png_to_xnb.exe [-h|--help] [-c] [-u] [-hidef] png_file [xnb_file]
 
     The program reads the image 'png_file' and saves as an XNB file as 'xnb_file'.
+    Start without any input parameters to launch a GUI.
 
     Options:
+      -h      Prints this help.
       -c      Compress the XNB file. This is the default if xcompress32.dll is
               available. Note that the compression might take significant time, but
               of course the result XNB file will be much smaller.
@@ -70,6 +72,7 @@ Command line options
               then it will convert all *.png files in the directory (not recursive).
     xnb_file  This can also be a file or a directory. If this is a directory then
               the filename will be name.xnb if the image file was name.png
+              If this is omitted then it converts the png_file into the same folder.
 
 License
 -------
