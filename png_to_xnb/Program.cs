@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Windows.Forms;
 
 namespace png_to_xnb {
 	class XCompress {
@@ -174,6 +175,7 @@ namespace png_to_xnb {
 
 	class MainClass {
 		private static bool keepRunning = true;
+		private static SimpleGUI simpleGUI;
 
 		private static bool isFile(string path) {
 			return File.Exists(path) && !isExistingDirectory(path);
@@ -243,62 +245,280 @@ namespace png_to_xnb {
 			}
 		}
 
-		private static void pngToXnb(string pngFile, string xnbFile, bool compressed, bool reach) {
-			Console.WriteLine(Path.GetFileName(pngFile));
-			Bitmap png = new Bitmap(pngFile);
-			using (FileStream outFs = new FileStream(xnbFile, FileMode.Create, FileAccess.Write)) {
-				using (BinaryWriterWrapper bw = new BinaryWriterWrapper(new BinaryWriter(outFs))) {
-					bw.WriteChars("XNB"); // format-identifier
-					bw.WriteChars("w");   // target-platform
-					bw.WriteByte((byte) 5);  // xnb-format-version
-					byte flagBits = 0;
-					if (!reach) {
-						flagBits |= 0x01;
-					}
-					if (compressed) {
-						flagBits |= 0x80;
-					}
-					bw.WriteByte(flagBits); // flag-bits; 00=reach, 01=hiprofile, 80=compressed, 00=uncompressed
-					if (compressed) {
-						writeCompressedData(bw, png);
-					} else {
-						bw.WriteInt(compressedFileSize(png)); // compressed file size
-						writeData(png, bw);
+		private static int pngToXnb(string pngFile, string xnbFile, bool compressed, bool reach) {
+			infoMessage(Path.GetFileName(pngFile));
+			using (Bitmap png = new Bitmap (pngFile)) {
+				using (FileStream outFs = new FileStream (xnbFile, FileMode.Create, FileAccess.Write)) {
+					using (BinaryWriterWrapper bw = new BinaryWriterWrapper (new BinaryWriter (outFs))) {
+						bw.WriteChars ("XNB"); // format-identifier
+						bw.WriteChars ("w");   // target-platform
+						bw.WriteByte ((byte)5);  // xnb-format-version
+						byte flagBits = 0;
+						if (!reach) {
+							flagBits |= 0x01;
+						}
+						if (compressed) {
+							flagBits |= 0x80;
+						}
+						bw.WriteByte (flagBits); // flag-bits; 00=reach, 01=hiprofile, 80=compressed, 00=uncompressed
+						if (compressed) {
+							writeCompressedData (bw, png);
+						} else {
+							bw.WriteInt (compressedFileSize (png)); // compressed file size
+							writeData (png, bw);
+						}
+						return 1;
 					}
 				}
 			}
 		}
 
-		private static void pngToDirectory(string pngFile, string xnbDirectory, bool compressed, bool reach) {
+		private static int pngToDirectory(string pngFile, string xnbDirectory, bool compressed, bool reach) {
 			string fileName = Path.GetFileNameWithoutExtension(pngFile);
 			string xnbFile = Path.Combine(xnbDirectory, fileName + ".xnb");
-			pngToXnb(pngFile, xnbFile, compressed, reach);
+			return pngToXnb(pngFile, xnbFile, compressed, reach);
 		}
 
-		private static void pngsToDirectory(string pngDirectory, string xnbDirectory, bool compressed, bool reach) {
+		private static int pngsToDirectory(string pngDirectory, string xnbDirectory, bool compressed, bool reach) {
 			string[] files = Directory.GetFiles(pngDirectory, "*.png");
+			int count = 0;
 			foreach (string pngFile in files) {
 				if (!keepRunning) {
 					break;
 				}
-				pngToDirectory(pngFile, xnbDirectory, compressed, reach);
-			} 
+				count += pngToDirectory(pngFile, xnbDirectory, compressed, reach);
+			}
+			return count;
 		}
 
 		private static void execute(string pngFile, string xnbFile, bool compressed, bool reach) {
+			int count;
 			if (isFile(pngFile)) {
 				if (isExistingDirectory(xnbFile)) {
-					pngToDirectory(pngFile, xnbFile, compressed, reach);
+					count = pngToDirectory(pngFile, xnbFile, compressed, reach);
 				} else {
-					pngToXnb(pngFile, xnbFile, compressed, reach);
+					count = pngToXnb(pngFile, xnbFile, compressed, reach);
 				}
 			} else {
 				if (isExistingDirectory(xnbFile)) {
-					pngsToDirectory(pngFile, xnbFile, compressed, reach);
+					count = pngsToDirectory(pngFile, xnbFile, compressed, reach);
 				} else {
 					throw new ArgumentException("xnb_file parameter must be a directory when png_file is a directory.");
 				}
 			}
+			infoMessage ("Converted " + count + " file"+(count != 1 ? "s" : "")+".");
+		}
+
+		public static void infoMessage(string message) {
+			if (simpleGUI != null) {
+				simpleGUI.statusBar.Text = message;
+				Application.DoEvents();
+			} else {
+				Console.WriteLine (message);
+			}
+		}
+
+		public static void errorMessage(string message) {
+			if (simpleGUI != null) {
+				simpleGUI.statusBar.Text = message;
+			} else {
+				Console.WriteLine (message);
+			}
+		}
+
+		public class SimpleGUI : Form {
+			TextBox textBoxInputFile;
+			TextBox textBoxOutputFile;
+			CheckBox checkBoxCompress;
+			RadioButton radioReach;
+			RadioButton radioHidef;
+			public StatusBar statusBar;
+
+			public SimpleGUI() {
+				Text = "PNG to XNB";
+				Size = new Size(640, 250);
+
+				MainMenu mainMenu = new MainMenu();
+				MenuItem file = mainMenu.MenuItems.Add("&File");
+				file.MenuItems.Add(new MenuItem("E&xit",
+					new EventHandler(this.OnExit), Shortcut.CtrlQ));
+
+				Menu = mainMenu;
+
+				Label labelInputFile = new Label();
+				labelInputFile.Parent = this;
+				labelInputFile.Text = "Input file:";
+				labelInputFile.Width = 70;
+				labelInputFile.Location = new Point(10, 18);
+
+				textBoxInputFile = new TextBox();
+				textBoxInputFile.Parent = this;
+				textBoxInputFile.Multiline = false;
+				textBoxInputFile.Location = new Point(80, 15);
+				textBoxInputFile.Width = 400;
+				textBoxInputFile.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+
+				Button buttonInputFile = new Button();
+				buttonInputFile.Parent = this;
+				buttonInputFile.Text = "File...";
+				buttonInputFile.Width = 60;
+				buttonInputFile.Location = new Point(490, 15);
+				buttonInputFile.Click += new EventHandler(onChooseInputFile);
+				buttonInputFile.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+
+				Button buttonInputFolder = new Button();
+				buttonInputFolder.Parent = this;
+				buttonInputFolder.Text = "Folder...";
+				buttonInputFolder.Width = 60;
+				buttonInputFolder.Location = new Point(560, 15);
+				buttonInputFolder.Click += new EventHandler(onChooseInputFolder);
+				buttonInputFolder.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+
+				Label labelOutputFile = new Label();
+				labelOutputFile.Parent = this;
+				labelOutputFile.Text = "Output file:";
+				labelOutputFile.Width = 70;
+				labelOutputFile.Location = new Point(10, 53);
+
+				textBoxOutputFile = new TextBox();
+				textBoxOutputFile.Parent = this;
+				textBoxOutputFile.Multiline = false;
+				textBoxOutputFile.Location = new Point(80, 50);
+				textBoxOutputFile.Width = 400;
+				textBoxOutputFile.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+
+				Button buttonOutputFile = new Button();
+				buttonOutputFile.Parent = this;
+				buttonOutputFile.Text = "File...";
+				buttonOutputFile.Width = 60;
+				buttonOutputFile.Location = new Point(490, 50);
+				buttonOutputFile.Click += new EventHandler(onChooseOutputFile);
+				buttonOutputFile.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+
+				Button buttonOutputFolder = new Button();
+				buttonOutputFolder.Parent = this;
+				buttonOutputFolder.Text = "Folder...";
+				buttonOutputFolder.Width = 60;
+				buttonOutputFolder.Location = new Point(560, 50);
+				buttonOutputFolder.Click += new EventHandler(onChooseOutputFolder);
+				buttonOutputFolder.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+
+				checkBoxCompress = new CheckBox();
+				checkBoxCompress.Parent = this;
+				checkBoxCompress.Width = 600;
+				checkBoxCompress.Location = new Point(10, 80);
+				checkBoxCompress.Enabled = XCompress.isItAvailable();
+				checkBoxCompress.Checked = checkBoxCompress.Enabled;
+				if (checkBoxCompress.Enabled) {
+					checkBoxCompress.Text = "Compress XNB file";
+				} else {
+					checkBoxCompress.Text = "Compress XNB file (xcompress32.dll not found)";
+				}
+
+				radioReach = new RadioButton();
+				radioReach.Parent = this;
+				radioReach.Text = "reach";
+				radioReach.Width = 60;
+				radioReach.Location = new Point(10, 110);
+				radioReach.Checked = true;
+
+				radioHidef = new RadioButton();
+				radioHidef.Parent = this;
+				radioHidef.Text = "hidef";
+				radioHidef.Width = 60;
+				radioHidef.Location = new Point(80, 110);
+
+				Button buttonConvert = new Button();
+				buttonConvert.Parent = this;
+				buttonConvert.Text = "Convert";
+				buttonConvert.Location = new Point(10, 140);
+				buttonConvert.Click += new EventHandler(onConvert);
+
+				statusBar = new StatusBar();
+				statusBar.Parent = this;
+				statusBar.Text = "Ready";
+
+				CenterToScreen();
+			}
+
+			void onConvert(object sender, EventArgs e) {
+				bool compressed = checkBoxCompress.Checked;
+				bool reach = radioReach.Checked;
+				string pngFile = textBoxInputFile.Text;
+				string xnbFile = textBoxOutputFile.Text;
+				if (pngFile.Length == 0) {
+					errorMessage ("Please select an input file or folder");
+				} else if (xnbFile.Length == 0) {
+					errorMessage ("Please select an output file or folder");
+				} else if (!isFile (pngFile) && !isExistingDirectory (pngFile)) {
+					errorMessage ("Input file or folder does not exists: " + pngFile);
+				} else {
+					execute (pngFile, xnbFile, compressed, reach);
+				}
+			}
+
+			void OnExit(object sender, EventArgs e) {
+				Close();
+			}
+
+			void onChooseInputFile(object sender, EventArgs e) {
+				OpenFileDialog openFileDialog1 = new OpenFileDialog();
+
+				openFileDialog1.InitialDirectory = ".";
+				openFileDialog1.Filter = "PNG files (*.png)|*.png|All files (*.*)|*.*";
+				openFileDialog1.FilterIndex = 1;
+				openFileDialog1.RestoreDirectory = true;
+
+				if(openFileDialog1.ShowDialog() == DialogResult.OK)
+				{
+					textBoxInputFile.Text = openFileDialog1.FileName;
+				}
+			}
+
+			void onChooseInputFolder(object sender, EventArgs e) {
+				FolderBrowserDialog folderBrowserDialog1 = new FolderBrowserDialog();
+
+				folderBrowserDialog1.Description = "Select the folder with the PNG files you want to convert.";
+				folderBrowserDialog1.SelectedPath = Path.GetFullPath (".");
+				folderBrowserDialog1.ShowNewFolderButton = false;
+
+				if(folderBrowserDialog1.ShowDialog() == DialogResult.OK)
+				{
+					textBoxInputFile.Text = folderBrowserDialog1.SelectedPath;
+				}
+			}
+
+			void onChooseOutputFile(object sender, EventArgs e) {
+				OpenFileDialog openFileDialog1 = new OpenFileDialog();
+
+				openFileDialog1.InitialDirectory = ".";
+				openFileDialog1.Filter = "PNG files (*.png)|*.png|All files (*.*)|*.*";
+				openFileDialog1.FilterIndex = 1;
+				openFileDialog1.RestoreDirectory = true;
+
+				if(openFileDialog1.ShowDialog() == DialogResult.OK)
+				{
+					textBoxOutputFile.Text = openFileDialog1.FileName;
+				}
+			}
+
+			void onChooseOutputFolder(object sender, EventArgs e) {
+				FolderBrowserDialog folderBrowserDialog1 = new FolderBrowserDialog();
+
+				folderBrowserDialog1.Description = "Select the folder where you want to save the XNB files.";
+				folderBrowserDialog1.SelectedPath = Path.GetFullPath (".");
+				folderBrowserDialog1.ShowNewFolderButton = true;
+
+				if(folderBrowserDialog1.ShowDialog() == DialogResult.OK)
+				{
+					textBoxOutputFile.Text = folderBrowserDialog1.SelectedPath;
+				}
+			}
+		}
+
+		private static void openGUI() {
+			simpleGUI = new SimpleGUI ();
+			Application.Run (simpleGUI);
 		}
 
 		public static void Main(string[] args) {
@@ -306,6 +526,10 @@ namespace png_to_xnb {
 				e.Cancel = true;
 				MainClass.keepRunning = false;
 			};
+			if (args.Length == 0) {
+				openGUI ();
+				Environment.Exit (0);
+			}
 			if (args.Length < 2) {
 				Console.WriteLine("Save images as XNB.");
 				Console.WriteLine("Usage: " + System.AppDomain.CurrentDomain.FriendlyName + " [-c] [-u] [-hidef] png_file xnb_file");

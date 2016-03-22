@@ -3,6 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "png_to_xnb", "png_to_xnb\png_to_xnb.csproj", "{307989CD-C847-4777-9F72-985D3368681B}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{303A5A59-BBF9-4520-9FCB-D378268DA3E2}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -13,5 +18,7 @@ Global
 		{307989CD-C847-4777-9F72-985D3368681B}.Debug|x86.Build.0 = Debug|x86
 		{307989CD-C847-4777-9F72-985D3368681B}.Release|x86.ActiveCfg = Release|x86
 		{307989CD-C847-4777-9F72-985D3368681B}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
 	EndGlobalSection
 EndGlobal
