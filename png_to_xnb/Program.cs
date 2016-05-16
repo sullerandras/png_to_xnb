@@ -521,6 +521,7 @@ namespace png_to_xnb {
 			Application.Run (simpleGUI);
 		}
 
+		[STAThreadAttribute]
 		public static void Main(string[] args) {
 			Console.CancelKeyPress += delegate(object sender, ConsoleCancelEventArgs e) {
 				e.Cancel = true;
