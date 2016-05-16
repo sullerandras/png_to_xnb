@@ -489,10 +489,10 @@ namespace png_to_xnb {
 			}
 
 			void onChooseOutputFile(object sender, EventArgs e) {
-				OpenFileDialog openFileDialog1 = new OpenFileDialog();
+				SaveFileDialog openFileDialog1 = new SaveFileDialog();
 
 				openFileDialog1.InitialDirectory = ".";
-				openFileDialog1.Filter = "PNG files (*.png)|*.png|All files (*.*)|*.*";
+				openFileDialog1.Filter = "PNG files (*.xnb)|*.xnb|All files (*.*)|*.*";
 				openFileDialog1.FilterIndex = 1;
 				openFileDialog1.RestoreDirectory = true;
 
