@@ -465,7 +465,7 @@ namespace png_to_xnb {
 				OpenFileDialog openFileDialog1 = new OpenFileDialog();
 
 				openFileDialog1.InitialDirectory = ".";
-				openFileDialog1.Filter = "PNG files (*.png)|*.png|All files (*.*)|*.*";
+				openFileDialog1.Filter = "PNG files (*.png)|*.png|GIF files (*.gif)|*.gif|All files (*.*)|*.*";
 				openFileDialog1.FilterIndex = 1;
 				openFileDialog1.RestoreDirectory = true;
 
