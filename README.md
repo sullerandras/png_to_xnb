@@ -21,6 +21,8 @@ I used Xamarin Studio / Mono for development, which is an open source .NET imple
 
 The program runs on Windows and on Mac / Linux by using `wine` or `mono`. I use it on a Mac, but also tested on Windows 7.
 
+On Ubuntu Linux you need to install a package which contains the `System.Windows.Forms.dll` file, for example: `sudo apt-get install libmono-system-windows-forms4.0-cil`. You can find packages in the [package repository](http://packages.ubuntu.com/).
+
 Examples
 --------
 
