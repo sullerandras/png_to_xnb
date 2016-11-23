@@ -292,6 +292,9 @@ namespace png_to_xnb {
 		}
 
 		private static void execute(string pngFile, string xnbFile, bool compressed, bool reach) {
+			if (!File.Exists(pngFile)) {
+				throw new ArgumentException("The png_file does not exist: "+pngFile);
+			}
 			int count;
 			if (isFile(pngFile)) {
 				if (isExistingDirectory(xnbFile)) {
@@ -584,7 +587,11 @@ namespace png_to_xnb {
 				Console.WriteLine("To write compressed XNB files, you must have 'xcompress32.dll' available.");
 				Environment.Exit(2);
 			}
-			execute(pngFile, xnbFile, compressed, reach);
+			try {
+				execute(pngFile, xnbFile, compressed, reach);
+			} catch (Exception ex) {
+				Console.WriteLine(ex);
+			}
 		}
 	}
 }
