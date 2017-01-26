@@ -291,20 +291,20 @@ namespace png_to_xnb {
 			return count;
 		}
 
-		private static void execute(string pngFile, string xnbFile, bool compressed, bool reach) {
-			if (!File.Exists(pngFile) && !Directory.Exists(pngFile)) {
-				throw new ArgumentException("The png_file does not exist: "+pngFile);
+		private static void execute(string pngFileOrDir, string xnbFileOrDir, bool compressed, bool reach) {
+			if (!File.Exists(pngFileOrDir) && !Directory.Exists(pngFileOrDir)) {
+				throw new ArgumentException("The png_file does not exist: "+pngFileOrDir);
 			}
 			int count;
-			if (isFile(pngFile)) {
-				if (isExistingDirectory(xnbFile)) {
-					count = pngToDirectory(pngFile, xnbFile, compressed, reach);
+			if (isFile(pngFileOrDir)) {
+				if (isExistingDirectory(xnbFileOrDir)) {
+					count = pngToDirectory(pngFileOrDir, xnbFileOrDir, compressed, reach);
 				} else {
-					count = pngToXnb(pngFile, xnbFile, compressed, reach);
+					count = pngToXnb(pngFileOrDir, xnbFileOrDir, compressed, reach);
 				}
 			} else {
-				if (isExistingDirectory(xnbFile)) {
-					count = pngsToDirectory(pngFile, xnbFile, compressed, reach);
+				if (isExistingDirectory(xnbFileOrDir)) {
+					count = pngsToDirectory(pngFileOrDir, xnbFileOrDir, compressed, reach);
 				} else {
 					throw new ArgumentException("xnb_file parameter must be a directory when png_file is a directory.");
 				}
