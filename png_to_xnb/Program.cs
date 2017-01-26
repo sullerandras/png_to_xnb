@@ -292,7 +292,7 @@ namespace png_to_xnb {
 		}
 
 		private static void execute(string pngFile, string xnbFile, bool compressed, bool reach) {
-			if (!File.Exists(pngFile)) {
+			if (!File.Exists(pngFile) && !Directory.Exists(pngFile)) {
 				throw new ArgumentException("The png_file does not exist: "+pngFile);
 			}
 			int count;
