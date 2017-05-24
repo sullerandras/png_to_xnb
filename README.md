@@ -49,7 +49,7 @@ xcompress32.dll
 XNB files can be compressed or uncompressed. The compression algorithm used is LZXD, which was invented by Microsoft, see [official website here](https://msdn.microsoft.com/en-us/library/cc483133%28v=exchg.80%29.aspx).
 I was unable to find any source code for LZXD compression. That's why I used the xcompress32.dll. This is most likely a proprietary dll so I don't want to include it in my project.
 
-If you want to create compressed XNB files then you need to get this dll from somewhere. It is part of the [XNA Game Studio](https://en.wikipedia.org/wiki/Microsoft_XNA) which is discontinued. (I found the dll [here](https://rpftool.googlecode.com/svn/trunk/RPFTool/))
+If you want to create compressed XNB files then you need to get this dll from somewhere. It is part of the [XNA Game Studio](https://en.wikipedia.org/wiki/Microsoft_XNA) which is discontinued. (I found the dll [here](https://github.com/cpich3g/rpftool/blob/master/RPFTool/xcompress32.dll?raw=true))
 Once you downloaded the dll, move it next to the png_to_xnb.exe file, then my little program should find it.
 
 Command line options
