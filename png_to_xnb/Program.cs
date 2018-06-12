@@ -203,11 +203,11 @@ namespace png_to_xnb {
 			return METADATA_SIZE + imageSize(png);
 		}
 
-		private static void writeCompressedData(BinaryWriterWrapper bw, Bitmap png) {
+		private static void writeCompressedData(BinaryWriterWrapper bw, Bitmap png, bool premultiply) {
 			using (MemoryStream stream = new MemoryStream()) {
 				byte[] uncompressedData;
 				using (BinaryWriterWrapper mw = new BinaryWriterWrapper(new BinaryWriter(stream))) {
-					writeData(png, mw);
+					writeData(png, mw, premultiply);
 					uncompressedData = stream.ToArray();
 				}
 				byte[] compressedData = XCompress.Compress(uncompressedData);
@@ -217,7 +217,7 @@ namespace png_to_xnb {
 			}
 		}
 
-		private static void writeData(Bitmap png, BinaryWriterWrapper bw) {
+		private static void writeData(Bitmap png, BinaryWriterWrapper bw, bool premultiply) {
 			bw.Write7BitEncodedInt(1);       // type-reader-count
 			bw.WriteString(TEXTURE_2D_TYPE); // type-reader-name
 			bw.WriteInt(0);                  // reader version number
@@ -235,9 +235,35 @@ namespace png_to_xnb {
 				byte[] bytes = new byte[length];
 				Marshal.Copy(bitmapData.Scan0, bytes, 0, length);
 				for (int i = 0; i < bytes.Length; i += 4) {
-					byte b = bytes[i];
+					// always swap red and blue channels
+					// premultiply alpha if requested
+					int a = bytes[i + 3];
+					if (!premultiply || a == 255) {
+						byte b = bytes[i];
+						bytes[i] = bytes[i + 2];
+						bytes[i + 2] = b;
+					} else if (a != 0) {
+						byte b = bytes[i];
+						bytes[i] = (byte)(bytes[i + 2] * a / 255);
+						bytes[i + 1] = (byte)(bytes[i + 1] * a / 255);
+						bytes[i + 2] = (byte)(b * a / 255);
+					} else {
+						// alpha is zero, so just zero everything
+						bytes[i] = 0;
+						bytes[i + 1] = 0;
+						bytes[i + 2] = 0;
+					}
+					/*byte b = bytes[i];
 					bytes[i] = bytes[i + 2];
-					bytes[i + 2] = b;
+					bytes[i + 2] = b;*/
+					/*if (premultiply && a != 255) {
+						if (a != 0) {
+							bytes[i] = (byte) (bytes[i] * a / 255);
+							bytes[i + 1] = (byte) (bytes[i + 1] * a / 255);
+							bytes[i + 2] = (byte) (bytes[i + 2] * a / 255);
+						} else {
+						}
+					}*/
 				}
 				bw.WriteByteArray(bytes);
 			} finally {
@@ -245,7 +271,7 @@ namespace png_to_xnb {
 			}
 		}
 
-		private static int pngToXnb(string pngFile, string xnbFile, bool compressed, bool reach) {
+		private static int pngToXnb(string pngFile, string xnbFile, bool compressed, bool reach, bool premultiply) {
 			infoMessage(Path.GetFileName(pngFile));
 			using (Bitmap png = new Bitmap (pngFile)) {
 				using (FileStream outFs = new FileStream (xnbFile, FileMode.Create, FileAccess.Write)) {
@@ -262,10 +288,10 @@ namespace png_to_xnb {
 						}
 						bw.WriteByte (flagBits); // flag-bits; 00=reach, 01=hiprofile, 80=compressed, 00=uncompressed
 						if (compressed) {
-							writeCompressedData (bw, png);
+							writeCompressedData (bw, png, premultiply);
 						} else {
 							bw.WriteInt (compressedFileSize (png)); // compressed file size
-							writeData (png, bw);
+							writeData (png, bw, premultiply);
 						}
 						return 1;
 					}
@@ -273,38 +299,38 @@ namespace png_to_xnb {
 			}
 		}
 
-		private static int pngToDirectory(string pngFile, string xnbDirectory, bool compressed, bool reach) {
+		private static int pngToDirectory(string pngFile, string xnbDirectory, bool compressed, bool reach, bool premultiply) {
 			string fileName = Path.GetFileNameWithoutExtension(pngFile);
 			string xnbFile = Path.Combine(xnbDirectory, fileName + ".xnb");
-			return pngToXnb(pngFile, xnbFile, compressed, reach);
+			return pngToXnb(pngFile, xnbFile, compressed, reach, premultiply);
 		}
 
-		private static int pngsToDirectory(string pngDirectory, string xnbDirectory, bool compressed, bool reach) {
+		private static int pngsToDirectory(string pngDirectory, string xnbDirectory, bool compressed, bool reach, bool premultiply) {
 			string[] files = Directory.GetFiles(pngDirectory, "*.png");
 			int count = 0;
 			foreach (string pngFile in files) {
 				if (!keepRunning) {
 					break;
 				}
-				count += pngToDirectory(pngFile, xnbDirectory, compressed, reach);
+				count += pngToDirectory(pngFile, xnbDirectory, compressed, reach, premultiply);
 			}
 			return count;
 		}
 
-		private static void execute(string pngFileOrDir, string xnbFileOrDir, bool compressed, bool reach) {
+		private static void execute(string pngFileOrDir, string xnbFileOrDir, bool compressed, bool reach, bool premultiply) {
 			if (!File.Exists(pngFileOrDir) && !Directory.Exists(pngFileOrDir)) {
 				throw new ArgumentException("The png_file does not exist: "+pngFileOrDir);
 			}
 			int count;
 			if (isFile(pngFileOrDir)) {
 				if (isExistingDirectory(xnbFileOrDir)) {
-					count = pngToDirectory(pngFileOrDir, xnbFileOrDir, compressed, reach);
+					count = pngToDirectory(pngFileOrDir, xnbFileOrDir, compressed, reach, premultiply);
 				} else {
-					count = pngToXnb(pngFileOrDir, xnbFileOrDir, compressed, reach);
+					count = pngToXnb(pngFileOrDir, xnbFileOrDir, compressed, reach, premultiply);
 				}
 			} else {
 				if (isExistingDirectory(xnbFileOrDir)) {
-					count = pngsToDirectory(pngFileOrDir, xnbFileOrDir, compressed, reach);
+					count = pngsToDirectory(pngFileOrDir, xnbFileOrDir, compressed, reach, premultiply);
 				} else {
 					throw new ArgumentException("xnb_file parameter must be a directory when png_file is a directory.");
 				}
@@ -333,6 +359,7 @@ namespace png_to_xnb {
 			TextBox textBoxInputFile;
 			TextBox textBoxOutputFile;
 			CheckBox checkBoxCompress;
+			CheckBox checkBoxPremultiply;
 			RadioButton radioReach;
 			RadioButton radioHidef;
 			public StatusBar statusBar;
@@ -347,6 +374,8 @@ namespace png_to_xnb {
 					new EventHandler(this.OnExit), Shortcut.CtrlQ));
 
 				Menu = mainMenu;
+
+				ToolTip toolTip = new ToolTip();
 
 				Label labelInputFile = new Label();
 				labelInputFile.Parent = this;
@@ -408,7 +437,7 @@ namespace png_to_xnb {
 
 				checkBoxCompress = new CheckBox();
 				checkBoxCompress.Parent = this;
-				checkBoxCompress.Width = 600;
+				checkBoxCompress.Width = 275;
 				checkBoxCompress.Location = new Point(10, 80);
 				checkBoxCompress.Enabled = XCompress.isItAvailable();
 				checkBoxCompress.Checked = checkBoxCompress.Enabled;
@@ -417,6 +446,14 @@ namespace png_to_xnb {
 				} else {
 					checkBoxCompress.Text = "Compress XNB file (xcompress32.dll not found)";
 				}
+
+				checkBoxPremultiply = new CheckBox();
+				checkBoxPremultiply.Parent = this;
+				checkBoxPremultiply.Text = "Premultiply alpha";
+				checkBoxPremultiply.Checked = true;
+				checkBoxPremultiply.Location = new Point(285, 80);
+				checkBoxPremultiply.Width = 200;
+				toolTip.SetToolTip(checkBoxPremultiply, "RGB channels are multiplied by the alpha channel");
 
 				radioReach = new RadioButton();
 				radioReach.Parent = this;
@@ -447,6 +484,7 @@ namespace png_to_xnb {
 			void onConvert(object sender, EventArgs e) {
 				bool compressed = checkBoxCompress.Checked;
 				bool reach = radioReach.Checked;
+				bool premultiply = checkBoxPremultiply.Checked;
 				string pngFile = textBoxInputFile.Text;
 				string xnbFile = textBoxOutputFile.Text;
 				if (pngFile.Length == 0) {
@@ -456,7 +494,7 @@ namespace png_to_xnb {
 				} else if (!isFile (pngFile) && !isExistingDirectory (pngFile)) {
 					errorMessage ("Input file or folder does not exists: " + pngFile);
 				} else {
-					execute (pngFile, xnbFile, compressed, reach);
+					execute (pngFile, xnbFile, compressed, reach, premultiply);
 				}
 			}
 
@@ -495,7 +533,7 @@ namespace png_to_xnb {
 				SaveFileDialog openFileDialog1 = new SaveFileDialog();
 
 				openFileDialog1.InitialDirectory = ".";
-				openFileDialog1.Filter = "PNG files (*.xnb)|*.xnb|All files (*.*)|*.*";
+				openFileDialog1.Filter = "XNB files (*.xnb)|*.xnb|All files (*.*)|*.*";
 				openFileDialog1.FilterIndex = 1;
 				openFileDialog1.RestoreDirectory = true;
 
@@ -536,7 +574,7 @@ namespace png_to_xnb {
 			}
 			if (args.Length == 1 && (args[0] == "-h" || args[0] == "--help" || args[0] == "/?" || args[0] == "/h")) {
 				Console.WriteLine("Save images as XNB.");
-				Console.WriteLine("Usage: " + System.AppDomain.CurrentDomain.FriendlyName + " [-h|--help] [-c] [-u] [-hidef] png_file [xnb_file]");
+				Console.WriteLine("Usage: " + System.AppDomain.CurrentDomain.FriendlyName + " [-h|--help] [-c] [-u] [-hidef] [-nopre] png_file [xnb_file]");
 				Console.WriteLine("");
 				Console.WriteLine("The program reads the image 'png_file' and saves as an XNB file as 'xnb_file'.");
 				Console.WriteLine("Start without any input parameters to launch a GUI.");
@@ -546,10 +584,12 @@ namespace png_to_xnb {
 				Console.WriteLine("  -c      Compress the XNB file. This is the default if xcompress32.dll is");
 				Console.WriteLine("          available. Note that the compression might take significant time, but");
 				Console.WriteLine("          of course the result XNB file will be much smaller.");
-				Console.WriteLine("  -u      Save uncompressed XNB file, even xcompress32.dll is available.");
+				Console.WriteLine("  -u      Save uncompressed XNB file, even if xcompress32.dll is available.");
 				Console.WriteLine("  -hidef  XNB's can be either 'reach' or 'hidef'. Default is 'reach', so use");
 				Console.WriteLine("          this -hidef option when necessary. I don't know what 'reach' or");
 				Console.WriteLine("          'hidef' means, but for example Terraria cannot load 'hidef' XNB files.");
+				Console.WriteLine("  -nopre  RGB channels will not be premultiplied by the alpha. By default, XNB's");
+				Console.WriteLine("          use premultiplied alpha.");
 				Console.WriteLine("");
 				Console.WriteLine("png_file  This can either be a file or a directory. If this is a directory");
 				Console.WriteLine("          then it will convert all *.png files in the directory (not recursive).");
@@ -561,6 +601,7 @@ namespace png_to_xnb {
 			bool compressionAvailable = XCompress.isItAvailable();
 			bool compressed = compressionAvailable;
 			bool reach = true;
+			bool premultiply = true;
 			string pngFile = null;
 			string xnbFile = null;
 			for (int i = 0; i < args.Length; i++) {
@@ -571,6 +612,8 @@ namespace png_to_xnb {
 					compressed = false;
 				} else if (v.Equals("-hidef")) {
 					reach = false;
+				} else if (v.Equals("-nopre")) {
+					premultiply = false;
 				} else if (pngFile == null) {
 					pngFile = v;
 				} else if (xnbFile == null) {
@@ -581,14 +624,14 @@ namespace png_to_xnb {
 				}
 			}
 			if (pngFile != null && xnbFile == null && isFile(pngFile)) {
-				xnbFile = Path.Combine (Path.GetDirectoryName (pngFile), Path.GetFileNameWithoutExtension (pngFile) + ".xnb");
+				xnbFile = Path.ChangeExtension (pngFile, ".xnb");
 			}
 			if (!compressionAvailable && compressed) {
 				Console.WriteLine("To write compressed XNB files, you must have 'xcompress32.dll' available.");
 				Environment.Exit(2);
 			}
 			try {
-				execute(pngFile, xnbFile, compressed, reach);
+				execute(pngFile, xnbFile, compressed, reach, premultiply);
 			} catch (Exception ex) {
 				Console.WriteLine(ex);
 			}
