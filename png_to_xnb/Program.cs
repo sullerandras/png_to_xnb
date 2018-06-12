@@ -239,6 +239,7 @@ namespace png_to_xnb {
 					// premultiply alpha if requested
 					int a = bytes[i + 3];
 					if (!premultiply || a == 255) {
+						// No premultiply necessary
 						byte b = bytes[i];
 						bytes[i] = bytes[i + 2];
 						bytes[i + 2] = b;
@@ -253,17 +254,6 @@ namespace png_to_xnb {
 						bytes[i + 1] = 0;
 						bytes[i + 2] = 0;
 					}
-					/*byte b = bytes[i];
-					bytes[i] = bytes[i + 2];
-					bytes[i + 2] = b;*/
-					/*if (premultiply && a != 255) {
-						if (a != 0) {
-							bytes[i] = (byte) (bytes[i] * a / 255);
-							bytes[i + 1] = (byte) (bytes[i + 1] * a / 255);
-							bytes[i + 2] = (byte) (bytes[i + 2] * a / 255);
-						} else {
-						}
-					}*/
 				}
 				bw.WriteByteArray(bytes);
 			} finally {
