@@ -55,7 +55,7 @@ Once you downloaded the dll, move it next to the png_to_xnb.exe file, then my li
 Command line options
 --------------------
 
-    Usage: png_to_xnb.exe [-h|--help] [-c] [-u] [-hidef] png_file [xnb_file]
+    Usage: png_to_xnb.exe [-h|--help] [-c] [-u] [-hidef] [-nopre] png_file [xnb_file]
 
     The program reads the image 'png_file' and saves as an XNB file as 'xnb_file'.
     Start without any input parameters to launch a GUI.
@@ -65,10 +65,12 @@ Command line options
       -c      Compress the XNB file. This is the default if xcompress32.dll is
               available. Note that the compression might take significant time, but
               of course the result XNB file will be much smaller.
-      -u      Save uncompressed XNB file, even xcompress32.dll is available.
+      -u      Save uncompressed XNB file, even if xcompress32.dll is available.
       -hidef  XNB's can be either 'reach' or 'hidef'. Default is 'reach', so use
               this -hidef option when necessary. I don't know what 'reach' or
               'hidef' means, but for example Terraria cannot load 'hidef' XNB files.
+      -nopre  RGB channels will not be premultiplied by the alpha. By default, XNB's
+              use premultiplied alpha.
 
     png_file  This can either be a file or a directory. If this is a directory
               then it will convert all *.png files in the directory (not recursive).
